@@ -1,0 +1,78 @@
+goals for today
+
+add event id to conferences in refdb - done!
+
+
+goal for sunday:
+
+Fix bug with reference search:
+doi:10.3204/PUBDB-2019-03613 not resolving even though this is a valid DOI
+
+Extra 1000 references (with DOIs) from tex papers with their contents
+
+Write a unit test against these references
+
+
+
+
+invalid DOI check:
+check if DOI exists
+
+find if DOI exists for reference
+
+
+not including: doi at the start of DOI URL:
+
+E.g.
+
+\bibitem{HDG}
+	H. De Gersem, S. Vanaverbeke, and G. Samaey, "Three-dimensional–two-dimensional coupled model for eddy currents in laminated iron cores," \textit{IEEE Trans. on Magn.}, vol. 48, no. 2, pp. 815-818, Feb. 2012, doi: \url {10.1109/TMAG.2011.2172924}.
+
+
+incorrect reference format:
+
+E.g.
+\bibitem{Takakura}
+H. Takaki \emph{et al.},
+\textquotedblleft{Beam injection with a pulsed sextupole magnet in an electron storage ring}\textquotedblright,
+\emph{Phys. Rev. ST Accel. Beams} 13, 020705 (2010).
+
+
+\bibitem{ESRF-Crosstalk}
+Ga\"el Le~Bec, Jo\"el Chavanne, Simone Liuzzo, and Simon White.
+\newblock Cross talks between storage ring magnets at the extremely brilliant
+  source at the european synchrotron radiation facility.
+\newblock {\em Phys. Rev. Accel. Beams}, 24:072401, Jul 2021.
+
+Not wrapping the journal in \emph
+
+\bibitem{Duodecuple} M. Sorbi, \textit{et al}, "Construction and Cold Test of the Superferric Dodecapole High Order Corrector for the LHC High Luminosity Upgrade," in IEEE Transactions on Applied Superconductivity, vol. 29, no. 5, pp. 1-5, Aug. 2019, Art no. 4001905
+
+
+URL is doi.org url
+
+   \bib item{bdsim}
+        L.~Nevay et al., "BDSIM: An accelerator tracking code with particle–matter interactions", \textit{Computer Physics Communications}, 252-107200, 2020 \url{doi.org/10.1016/j.cpc.2020.107200}.
+
+
+Incorrect use of:
+\begin{thebibliography}{99}   % Use for  10-99  references
+%\begin{thebibliography}{9} % Use for 1-9 references
+
+
+
+reference inside the abstract
+
+tables have titles, and should be in title case with no period
+
+numbers follow by common units need to use the special \~ half space character
+
+figures in sentence case
+
+more figures than are referenced
+
+more tables than are referenced
+
+more bibitems than are referenced
+
+embed fonts
