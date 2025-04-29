@@ -52,49 +52,6 @@ func tryTrimDOI(originalDOI string, cutset string) (string, error) {
 	return "", nil
 }
 
-func searchCrossRef(reference string) (string, error) {
-	urlEncodedReference := url.QueryEscape(reference)
-	crossRefURL := fmt.Sprintf("https://api.crossref.org/works?query=%s&rows=1", urlEncodedReference)
-
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	resp, err := client.Get(crossRefURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to check DOI: %w", err)
-	}
-
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to check DOI: %s", resp.Status)
-	}
-
-	bodyContent, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	type CrossResultResult struct {
-		Message struct {
-			Items []struct {
-				DOI string `json:"doi"`
-			} `json:"items"`
-		} `json:"message"`
-	}
-
-	var result CrossResultResult
-	err = json.Unmarshal(bodyContent, &result)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal JSON: %w", err)
-	}
-
-	if len(result.Message.Items) > 0 {
-		return result.Message.Items[0].DOI, nil
-	}
-	return "", nil
-}
-
 func searchRefSearch(reference string) (string, error) {
 	urlEncodedReference := url.QueryEscape(reference)
 	jacowRefSearchURL := fmt.Sprintf("https://refs.jacow.org/internal?query=%s", urlEncodedReference)
@@ -140,7 +97,7 @@ func searchDOI(reference string) (string, error) {
 	if strings.Contains(reference, "10.18429") || strings.Contains(reference, "JACoW") {
 		return searchRefSearch(reference)
 	}
-	return searchCrossRef(reference)
+	return "", nil
 }
 
 func CheckDOIExists(bibItem structs.BibItem) (structs.CheckResult, *structs.Suggestion) {
@@ -162,7 +119,7 @@ func CheckDOIExists(bibItem structs.BibItem) (structs.CheckResult, *structs.Sugg
 		if newDOI != "" {
 			return structs.HasIssue, &structs.Suggestion{
 				Content:     newDOI,
-				Description: "This DOI ends with a period, which is not correct for this specific DOI. Please remove this.",
+				Description: "This DOI ends with a period, which is not correct for this specific DOI. Please remove the period.",
 			}
 		}
 	}
@@ -181,16 +138,8 @@ func CheckDOIExists(bibItem structs.BibItem) (structs.CheckResult, *structs.Sugg
 	}
 
 	if !doiExists {
-		newDOI, err := searchDOI(currentDOI)
-		if err != nil {
-			log.Printf("Error checked DOI %s: %v", currentDOI, err)
-			return structs.NoSure, nil
-		}
-		if newDOI != "" {
-			return structs.HasIssue, &structs.Suggestion{
-				Content:     newDOI,
-				Description: "The DOI does not appear to be valid. We had a look based on the reference, check if the suggested DOI is correct.",
-			}
+		return structs.HasIssue, &structs.Suggestion{
+			Description: "The DOI does not appear to be valid. Please check the DOI.",
 		}
 	}
 

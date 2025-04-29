@@ -1,0 +1,7 @@
+spec:
+  name: catscan-latex
+  services:
+    - name: web
+      git:
+        branch: master
+        repo_clone_url: https://github.com/joshpme/catscan-latex.git

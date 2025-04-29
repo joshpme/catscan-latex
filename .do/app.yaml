@@ -1,0 +1,6 @@
+name: catscan-latex
+services:
+- name: web
+  github:
+    repo: joshpme/catscan-latex
+    branch: master

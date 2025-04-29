@@ -52,7 +52,7 @@ func filterBibItemInDocument(references []structs.BibItem, document structs.Docu
 	return filtered
 }
 
-var doiRegex = regexp2.MustCompile(`10\.\d{4,9}/[-._;()/:a-zA-Z0-9]+`, regexp2.Singleline)
+var doiRegex = regexp2.MustCompile(`10\.\d{4,9}/[-._\\;()/:a-zA-Z0-9]+`, regexp2.Singleline)
 
 func findLastDoi(reference string) string {
 	var lastDoi string
