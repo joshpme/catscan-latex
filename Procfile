@@ -1,1 +1,1 @@
-web: bin/catscan-latex
+web: bin/latex
