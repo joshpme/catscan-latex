@@ -1,8 +1,8 @@
 package finder
 
 import (
+	"catscan-latex/structs"
 	"github.com/dlclark/regexp2"
-	"latex/structs"
 )
 
 var commentRegex = regexp2.MustCompile(`%.*?\n`, regexp2.Singleline)

@@ -1,10 +1,10 @@
 package checker
 
 import (
+	"catscan-latex/structs"
 	"encoding/json"
 	"fmt"
 	"io"
-	"latex/structs"
 	"log"
 	"net/http"
 	"net/url"

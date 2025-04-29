@@ -1,4 +1,4 @@
-module latex
+module catscan-latex
 
 go 1.24.0
 

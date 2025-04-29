@@ -1,7 +1,7 @@
 package checker
 
 import (
-	"latex/structs"
+	"catscan-latex/structs"
 	"testing"
 )
 

@@ -1,8 +1,8 @@
 package finder
 
 import (
+	"catscan-latex/structs"
 	"github.com/dlclark/regexp2"
-	"latex/structs"
 )
 
 var abstractBeginRegex = regexp2.MustCompile(`\\begin{abstract}`, 0)

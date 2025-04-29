@@ -1,14 +1,14 @@
 package main
 
 import (
+	"catscan-latex/checker"
+	"catscan-latex/finder"
+	"catscan-latex/structs"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
-	"latex/checker"
-	"latex/finder"
-	"latex/structs"
 	"log"
 	"net/http"
 	"os"
