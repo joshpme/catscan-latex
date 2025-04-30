@@ -11,11 +11,12 @@ var commaProceedsEtAl = regexp2.MustCompile(`,\s*(\\emph\{|\\textit\{|\{\\it\s*|
 var containsDoi = regexp2.MustCompile(`doi:10.`, 0)
 var containsSpace = regexp2.MustCompile(`doi:\s10`, 0)
 var noPrefix = regexp2.MustCompile(`\\url{10\.`, 0)
-var doiIsUrl = regexp2.MustCompile(`https?://doi.org`, 0)
+var doiIsUrl = regexp2.MustCompile(`https?://(dx\.)?doi.org`, 0)
 
 var wrappedEtAl = regexp.MustCompile(`(\\emph\{|\\textit\{|\{\\it\s*|\{\\em\s*)et al\.,?\s*}`)
 var wrappedDoi = regexp.MustCompile(`\\url\{doi:10\.`)
 
+var volumeIssue = regexp2.MustCompile(`Vol. \d+, Issue \d+,`, 0)
 var apsStyleReference = regexp2.MustCompile(`\d+[, -]+?\d+ \(\d{4}\)`, 0)
 var brokenStyleReference = regexp2.MustCompile(`: N\. p\., \d{4}. Web\.`, 0)
 
@@ -108,6 +109,12 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 		issues = append(issues, structs.Issue{Type: "DOI_IS_URL", Location: location})
+	}
+
+	match, err = volumeIssue.FindStringMatch(bibItem.OriginalText)
+	if err == nil && match != nil {
+		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
+		issues = append(issues, structs.Issue{Type: "VOLUME_ISSUE", Location: location})
 	}
 
 	return issues

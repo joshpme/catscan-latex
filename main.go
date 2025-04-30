@@ -67,6 +67,8 @@ func issueToDescription(issue structs.Issue) string {
 		return "DOI does not contain \"doi:\" prefix. It should appear like this \\url{doi:10.18429/JACoW-IPAC2023-XXXX}"
 	case "DOI_IS_URL":
 		return "DOI is written as a web URL (including https://doi.org/) which is incorrect. Remove the https://doi.org/, and write it as per this example. \\url{doi:10.18429/JACoW-IPAC2023-XXXX}"
+	case "VOLUME_ISSUE":
+		return "JACoW references use vol. X and no. X. You have used not Vol. X, Issue X, which is incorrect. Please correct your reference style. You can generate correctly formatted references at https://refs.jacow.org/ or you can refer to the JACoW reference style guide at https://www.jacow.org/Authors/FormattingCitations"
 	}
 	return ""
 }
