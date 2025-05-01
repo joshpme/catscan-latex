@@ -8,7 +8,7 @@ import (
 
 var containsEtAl = regexp2.MustCompile(`et al\.`, 0)
 var commaProceedsEtAl = regexp2.MustCompile(`,\s*(\\emph\{|\\textit\{|\{\\it\s*|\{\\em\s*)?et al`, 0)
-var containsDoi = regexp2.MustCompile(`doi:10.`, 0)
+var containsDoi = regexp2.MustCompile(`doi:\s?10.`, 0)
 var containsSpace = regexp2.MustCompile(`doi:\s10`, 0)
 var noPrefix = regexp2.MustCompile(`\\url{10\.`, 0)
 var doiIsUrl = regexp2.MustCompile(`https?://(dx\.)?doi.org`, 0)
