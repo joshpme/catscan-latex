@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/google/generative-ai-go v0.19.0
+	github.com/rs/cors v1.11.1
 	google.golang.org/api v0.230.0
 )
 

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/generative-ai-go/genai"
+	"github.com/rs/cors"
 	"google.golang.org/api/option"
 	"log"
 	"net/http"
@@ -79,9 +80,12 @@ type Request struct {
 }
 
 type Response struct {
-	StatusCode int               `json:"statusCode,omitempty"`
-	Headers    map[string]string `json:"headers,omitempty"`
-	Body       string            `json:"body,omitempty"`
+	StatusCode    int               `json:"statusCode,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+	Body          string            `json:"body,omitempty"`
+	IsAbbreviated bool              `json:"isabbreviated"`
+	IssuesFound   int               `json:"issuesFound"`
+	Unabbreviated string            `json:"unabbreviated"`
 }
 
 func geminiSummarize(content string) (string, error) {
@@ -125,18 +129,18 @@ func Main(in Request) (*Response, error) {
 
 	fileName := in.Filename
 	contents := in.Content
-
+	isAbbreviated := false
 	// for each file, read the contents and run the main function
 	result, err := getResult(fileName, contents)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
-	report := ""
 	issueFound := false
-
 	issueCount := 0
+	output := "No issues found"
 
+	report := ""
 	for _, bibItem := range result.BibItems {
 		issues := checker.CheckBibItem(bibItem)
 		if len(issues) > 0 {
@@ -166,57 +170,75 @@ func Main(in Request) (*Response, error) {
 		}
 	}
 	if issueFound {
-		output := report
+		output = report
 		if issueCount > 3 {
-			output, err = geminiSummarize(report)
-			if err != nil {
-				return nil, fmt.Errorf("error generating summary: %w", err)
+			isAbbreviated = true
+			geminiOutput, err := geminiSummarize(report)
+			if err == nil {
+				output = geminiOutput
 			}
 		}
 
-		return &Response{
-			StatusCode: 200,
-			Body:       output,
-		}, nil
 	}
 	return &Response{
-		StatusCode: 200,
-		Body:       "No issues found",
+		StatusCode:    200,
+		Body:          output,
+		IsAbbreviated: isAbbreviated,
+		IssuesFound:   issueCount,
+		Unabbreviated: report,
 	}, nil
 }
 
+func baseHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// Log the incoming request
+	log.Printf("Received request: %s %s", r.Method, r.URL.Path)
+
+	// Ensure the request method is POST
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse the JSON body
+	var req Request
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Call the Main function
+	resp, err := Main(req)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error processing request: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Write the response as JSON
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, fmt.Sprintf("Error encoding response: %v", err), http.StatusInternalServerError)
+	}
+}
+
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Log the incoming request
-		log.Printf("Received request: %s %s", r.Method, r.URL.Path)
 
-		// Ensure the request method is POST
-		if r.Method != http.MethodPost {
-			http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
-			return
-		}
+	mux := http.NewServeMux()
 
-		// Parse the JSON body
-		var req Request
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&req); err != nil {
-			http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
-			return
-		}
+	mux.HandleFunc("/", baseHandler)
 
-		// Call the Main function
-		resp, err := Main(req)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error processing request: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		// Write the response as JSON
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			http.Error(w, fmt.Sprintf("Error encoding response: %v", err), http.StatusInternalServerError)
-		}
-	})
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"}, // Or specifically list your frontend domains
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Requested-With", "Accept"},
+		ExposedHeaders:   []string{"Content-Length"},
+		AllowCredentials: true,  // Important if you're sending cookies or auth headers
+		MaxAge:           86400, // How long the browser should cache the preflight response (in seconds)
+	}).Handler(mux)
 
 	// Get the port from the environment variable or default to 80
 	port := os.Getenv("PORT")
@@ -227,7 +249,7 @@ func main() {
 
 	// Start the HTTP server
 	log.Printf("Starting server on %s", bindAddr)
-	if err := http.ListenAndServe(bindAddr, nil); err != nil {
+	if err := http.ListenAndServe(bindAddr, corsHandler); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
