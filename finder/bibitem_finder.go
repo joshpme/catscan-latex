@@ -49,7 +49,7 @@ func filterBibItemsInComments(references []structs.BibItem, comments []structs.C
 func filterBibItemInDocument(references []structs.BibItem, document structs.Document) []structs.BibItem {
 	var filtered []structs.BibItem
 	for _, ref := range references {
-		if !structs.LocationIn(ref.Location, document.Location) {
+		if structs.LocationIn(ref.Location, document.Location) {
 			filtered = append(filtered, ref)
 		}
 	}
