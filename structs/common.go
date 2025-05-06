@@ -14,11 +14,12 @@ type Citation struct {
 }
 
 type BibItem struct {
-	Name         string   `json:"-"`
-	OriginalText string   `json:"-"`
-	Doi          string   `json:"doi"`
-	Ref          string   `json:"ref"`
-	Location     Location `json:"location"`
+	Name          string   `json:"-"`
+	OriginalText  string   `json:"-"`
+	Doi           string   `json:"doi"`
+	Ref           string   `json:"ref"`
+	Location      Location `json:"location"`
+	LabelLocation Location `json:"labelLocation"`
 }
 
 type Issue struct {

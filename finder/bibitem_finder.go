@@ -12,19 +12,23 @@ func removeExcessWhitespace(contents string) string {
 	return strings.Trim(withoutMoreThanOneSpace, " \n\t")
 }
 
-var bibItemRegex = regexp2.MustCompile(`\\bibitem\{(.*?)}(.*?)(?=(\\bibitem|\\end\{thebibliography}))`, regexp2.Singleline)
+var bibItemRegex = regexp2.MustCompile(`(\\bibitem\{(.*?)})(.*?)(?=(\\bibitem|\\end\{thebibliography}))`, regexp2.Singleline)
 
 func findBibItems(contents string) []structs.BibItem {
 	var items []structs.BibItem
 	match, err := bibItemRegex.FindStringMatch(contents)
 	for err == nil && match != nil {
 		items = append(items, structs.BibItem{
-			Name:         match.Groups()[1].String(),
+			Name:         match.Groups()[2].String(),
 			Ref:          removeExcessWhitespace(match.Groups()[2].String()),
-			OriginalText: match.Groups()[2].String(),
+			OriginalText: match.Groups()[3].String(),
 			Location: structs.Location{
-				Start: match.Groups()[2].Index,
-				End:   match.Groups()[2].Index + match.Groups()[2].Length,
+				Start: match.Groups()[3].Index,
+				End:   match.Groups()[3].Index + match.Groups()[2].Length,
+			},
+			LabelLocation: structs.Location{
+				Start: match.Groups()[1].Index,
+				End:   match.Groups()[1].Index + match.Groups()[1].Length,
 			},
 		})
 		match, err = bibItemRegex.FindNextMatch(match)
@@ -35,7 +39,7 @@ func findBibItems(contents string) []structs.BibItem {
 func filterBibItemsInComments(references []structs.BibItem, comments []structs.Comment) []structs.BibItem {
 	var filtered []structs.BibItem
 	for _, ref := range references {
-		if !locationInComments(ref.Location, comments) {
+		if !locationInComments(ref.LabelLocation, comments) {
 			filtered = append(filtered, ref)
 		}
 	}

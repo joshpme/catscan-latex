@@ -6,5 +6,5 @@ type Location struct {
 }
 
 func LocationIn(needle Location, haystack Location) bool {
-	return needle.Start <= haystack.Start && needle.End >= haystack.End
+	return needle.Start >= haystack.Start && needle.End <= haystack.End
 }

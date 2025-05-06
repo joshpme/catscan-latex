@@ -1,8 +1,55 @@
 package finder
 
 import (
+	"log"
+	"os"
 	"testing"
 )
+
+func Test_findBibItems(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		comments        int
+		allRefs         int
+		uncommentedRefs int
+	}{
+		{
+			name:  "No bibitems",
+			input: "example.tex",
+
+			comments:        1,
+			allRefs:         2,
+			uncommentedRefs: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// decode json string to string
+			content, err := os.ReadFile(tt.input)
+			if err != nil {
+				log.Fatalf("Failed to read file: %v", err)
+			}
+			fileContent := string(content)
+			if err != nil {
+				t.Errorf("json.Unmarshal() error = %v", err)
+			}
+			comments := FindComments(fileContent)
+			if got := len(comments); got != tt.comments {
+				t.Errorf("FindComments() = %v, want %v", got, tt.comments)
+			}
+			all := findBibItems(fileContent)
+			if got := len(all); got != tt.allRefs {
+				t.Errorf("findBibItems() = %v, want %v", got, tt.allRefs)
+			}
+			filtered := filterBibItemsInComments(all, comments)
+			if got := len(filtered); got != tt.uncommentedRefs {
+				t.Errorf("filterBibItemsInComments() = %v, want %v", got, tt.uncommentedRefs)
+			}
+		})
+	}
+}
 
 func Test_findLastDoi(t *testing.T) {
 	tests := []struct {
