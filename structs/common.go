@@ -23,17 +23,13 @@ type BibItem struct {
 }
 
 type Issue struct {
-	Type     string   `json:"type"`
-	Location Location `json:"location"`
+	Name       string   `json:"name"`
+	Type       string   `json:"type"`
+	Location   Location `json:"location"`
+	Suggestion string   `json:"suggestion"`
 }
 
 type CheckResult int
-
-const (
-	NoIssue CheckResult = iota
-	HasIssue
-	NoSure
-)
 
 type Suggestion struct {
 	Description string `json:"description"`
