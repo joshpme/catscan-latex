@@ -125,8 +125,52 @@ func geminiSummarize(content string) (string, error) {
 	return "", fmt.Errorf("unexpected part type: %T", part)
 }
 
-func Main(in Request) (*Response, error) {
+type Report struct {
+	issueFound    bool
+	issueCount    int
+	output        string
+	unabbreviated string
+}
 
+func getReport(result structs.Contents) Report {
+	report := Report{
+		issueFound:    false,
+		issueCount:    0,
+		output:        "No issues found",
+		unabbreviated: "",
+	}
+	for _, bibItem := range result.BibItems {
+		issues := checker.CheckBibItem(bibItem)
+		if len(issues) > 0 {
+			report.issueFound = true
+			report.unabbreviated += fmt.Sprintf("\nIssue found in reference %s:\n%s\n", strings.Trim(bibItem.Name, " \t\r\n"), strings.Trim(bibItem.Ref, " \t\n"))
+			for _, issue := range issues {
+				descriptionOfIssue := issueToDescription(issue)
+				if descriptionOfIssue != "" {
+					report.issueFound = true
+					report.issueCount += 1
+					report.unabbreviated += fmt.Sprintf(" %s\n", descriptionOfIssue)
+				}
+			}
+		}
+
+		doiResult, suggestion := checker.CheckDOIExists(bibItem)
+		if doiResult == structs.HasIssue {
+			report.issueFound = true
+			if suggestion != nil {
+				report.unabbreviated += fmt.Sprintf("\nIssue found in reference DOI for reference %s:\n%s\n", strings.Trim(bibItem.Name, " \t\r\n"), strings.Trim(bibItem.Ref, " \t\n"))
+				report.unabbreviated += fmt.Sprintf("%s\n", suggestion.Description)
+				report.issueCount += 1
+				if suggestion.Content != "" {
+					report.unabbreviated += fmt.Sprintf("Suggested DOI: %s\n", suggestion.Content)
+				}
+			}
+		}
+	}
+	return report
+}
+
+func Main(in Request) (*Response, error) {
 	fileName := in.Filename
 	contents := in.Content
 	isAbbreviated := false
@@ -136,56 +180,25 @@ func Main(in Request) (*Response, error) {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
-	issueFound := false
-	issueCount := 0
-	output := "No issues found"
+	report := getReport(*result)
 
-	report := ""
-	for _, bibItem := range result.BibItems {
-		issues := checker.CheckBibItem(bibItem)
-		if len(issues) > 0 {
-			issueFound = true
-			report += fmt.Sprintf("\nIssue found in reference %s:\n%s\n", strings.Trim(bibItem.Name, " \t\r\n"), strings.Trim(bibItem.Ref, " \t\n"))
-			for _, issue := range issues {
-				descriptionOfIssue := issueToDescription(issue)
-				if descriptionOfIssue != "" {
-					issueFound = true
-					issueCount += 1
-					report += fmt.Sprintf(" %s\n", descriptionOfIssue)
-				}
-			}
-		}
-
-		doiResult, suggestion := checker.CheckDOIExists(bibItem)
-		if doiResult == structs.HasIssue {
-			issueFound = true
-			if suggestion != nil {
-				report += fmt.Sprintf("\nIssue found in reference DOI for reference %s:\n%s\n", strings.Trim(bibItem.Name, " \t\r\n"), strings.Trim(bibItem.Ref, " \t\n"))
-				report += fmt.Sprintf("%s\n", suggestion.Description)
-				issueCount += 1
-				if suggestion.Content != "" {
-					report += fmt.Sprintf("Suggested DOI: %s\n", suggestion.Content)
-				}
-			}
-		}
-	}
-	if issueFound {
-		output = report
-		if issueCount > 3 {
+	if report.issueFound {
+		report.output = report.unabbreviated
+		if report.issueCount > 3 {
 			isAbbreviated = true
-			geminiOutput, err := geminiSummarize(report)
+			geminiOutput, err := geminiSummarize(report.unabbreviated)
 			if err == nil {
-				output = geminiOutput
+				report.output = geminiOutput
 			}
 		}
-
 	}
+
 	return &Response{
 		StatusCode:    200,
-		Body:          output,
+		Body:          report.output,
 		IsAbbreviated: isAbbreviated,
-		IssuesFound:   issueCount,
-		Unabbreviated: report,
+		IssuesFound:   report.issueCount,
+		Unabbreviated: report.unabbreviated,
 	}, nil
 }
 
@@ -225,29 +238,62 @@ func baseHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getContents(fileName string) (string, error) {
+	content, err := os.ReadFile(fileName)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
+func exampleHandler(w http.ResponseWriter, r *http.Request) {
+	files := findFiles("examples")
+	reports := make([]Report, 0)
+	var result *structs.Contents
+	for _, fileName := range files {
+		contents, err := getContents(fileName)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error reading file: %s", fileName), http.StatusInternalServerError)
+			return
+		}
+		result, err = getResult(fileName, contents)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error getting result: %s", fileName), http.StatusInternalServerError)
+			break
+		}
+		report := getReport(*result)
+		reports = append(reports, report)
+	}
+	resp := Response{
+		StatusCode: 200,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, fmt.Sprintf("Error encoding response: %v", err), http.StatusInternalServerError)
+	}
+}
+
 func main() {
-
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/", baseHandler)
+	mux.HandleFunc("/dry-run", exampleHandler)
 
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"}, // Or specifically list your frontend domains
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Requested-With", "Accept"},
 		ExposedHeaders:   []string{"Content-Length"},
-		AllowCredentials: true,  // Important if you're sending cookies or auth headers
-		MaxAge:           86400, // How long the browser should cache the preflight response (in seconds)
+		AllowCredentials: true,
+		MaxAge:           86400,
 	}).Handler(mux)
 
-	// Get the port from the environment variable or default to 80
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "80"
+		port = "8080"
 	}
+
 	bindAddr := fmt.Sprintf(":%s", port)
 
-	// Start the HTTP server
 	log.Printf("Starting server on %s", bindAddr)
 	if err := http.ListenAndServe(bindAddr, corsHandler); err != nil {
 		log.Fatalf("Server failed: %v", err)
