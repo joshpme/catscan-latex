@@ -13,44 +13,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 )
-
-func Finder(in structs.Request) structs.Contents {
-	filename := in.Filename
-	contents := in.Content
-	comments := finder.FindComments(contents)
-	document := finder.FindDocument(contents, comments)
-	bibItems := finder.FindValidBibItems(contents, comments, document)
-	return structs.Contents{
-		Document: document,
-		Comments: comments,
-		BibItems: bibItems,
-		Filename: filename,
-		Content:  contents,
-	}
-}
-
-func findFiles(directory string) []string {
-	files := make([]string, 0)
-	entries, err := os.ReadDir(directory)
-	if err != nil {
-		log.Fatalf("failed reading directory: %v", err)
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".tex" {
-			files = append(files, filepath.Join(directory, entry.Name()))
-		}
-	}
-	return files
-}
-
-func getResult(fileName string, contents string) (*structs.Contents, error) {
-	result := Finder(structs.Request{Content: contents, Filename: fileName})
-	return &result, nil
-}
 
 func issueToDescription(issue structs.Issue) string {
 	switch issue.Type {
@@ -70,6 +34,12 @@ func issueToDescription(issue structs.Issue) string {
 		return "DOI is written as a web URL (including https://doi.org/) which is incorrect. Remove the https://doi.org/, and write it as per this example. \\url{doi:10.18429/JACoW-IPAC2023-XXXX}"
 	case "VOLUME_ISSUE":
 		return "JACoW references use vol. X and no. X. You have used not Vol. X, Issue X, which is incorrect. Please correct your reference style. You can generate correctly formatted references at https://refs.jacow.org/ or you can refer to the JACoW reference style guide at https://www.jacow.org/Authors/FormattingCitations"
+	case "DOI_ENDS_IN_PERIOD":
+		return "This DOI ends in a period, which is incorrect for this specific DOI. Please remove the period."
+	case "DOI_ENDS_IN_PARENTHESIS":
+		return "DOI is wrapped in parenthesis, please remove these."
+	case "DOI_NOT_FOUND":
+		return "DOI was checked, and does not appear to be valid. Please check if the DOI is correct."
 	}
 	return ""
 }
@@ -125,67 +95,62 @@ func geminiSummarize(content string) (string, error) {
 	return "", fmt.Errorf("unexpected part type: %T", part)
 }
 
-func Main(in Request) (*Response, error) {
+type Report struct {
+	issueFound    bool
+	issueCount    int
+	output        string
+	unabbreviated string
+	issues        []structs.Issue
+}
 
+func getReport(issues []structs.Issue) Report {
+	report := Report{
+		issueFound:    false,
+		issueCount:    0,
+		output:        "No issues found",
+		unabbreviated: "",
+	}
+	for _, issue := range issues {
+		report.issueFound = true
+		name := strings.Trim(issue.Name, " \t\r\n")
+		descriptionOfIssue := issueToDescription(issue)
+		if descriptionOfIssue != "" {
+			report.issueFound = true
+			report.issueCount += 1
+			report.unabbreviated += fmt.Sprintf("\nIssue found in reference %s: %s\n", name, descriptionOfIssue)
+			report.unabbreviated += fmt.Sprintf("\n")
+		}
+	}
+	return report
+}
+
+func Main(in Request) (*Response, error) {
 	fileName := in.Filename
 	contents := in.Content
 	isAbbreviated := false
 	// for each file, read the contents and run the main function
-	result, err := getResult(fileName, contents)
-	if err != nil {
-		return nil, fmt.Errorf("error reading file: %w", err)
-	}
+	result := finder.Finder(structs.Request{Content: contents, Filename: fileName})
 
-	issueFound := false
-	issueCount := 0
-	output := "No issues found"
+	issues := checker.GetIssues(result)
+	report := getReport(issues)
 
-	report := ""
-	for _, bibItem := range result.BibItems {
-		issues := checker.CheckBibItem(bibItem)
-		if len(issues) > 0 {
-			issueFound = true
-			report += fmt.Sprintf("\nIssue found in reference %s:\n%s\n", strings.Trim(bibItem.Name, " \t\r\n"), strings.Trim(bibItem.Ref, " \t\n"))
-			for _, issue := range issues {
-				descriptionOfIssue := issueToDescription(issue)
-				if descriptionOfIssue != "" {
-					issueFound = true
-					issueCount += 1
-					report += fmt.Sprintf(" %s\n", descriptionOfIssue)
-				}
-			}
-		}
-
-		doiResult, suggestion := checker.CheckDOIExists(bibItem)
-		if doiResult == structs.HasIssue {
-			issueFound = true
-			if suggestion != nil {
-				report += fmt.Sprintf("\nIssue found in reference DOI for reference %s:\n%s\n", strings.Trim(bibItem.Name, " \t\r\n"), strings.Trim(bibItem.Ref, " \t\n"))
-				report += fmt.Sprintf("%s\n", suggestion.Description)
-				issueCount += 1
-				if suggestion.Content != "" {
-					report += fmt.Sprintf("Suggested DOI: %s\n", suggestion.Content)
-				}
-			}
-		}
-	}
-	if issueFound {
-		output = report
-		if issueCount > 3 {
+	if report.issueFound {
+		report.output = report.unabbreviated
+		if report.issueCount > 3 {
 			isAbbreviated = true
-			geminiOutput, err := geminiSummarize(report)
+			geminiOutput, err := geminiSummarize(report.unabbreviated)
 			if err == nil {
-				output = geminiOutput
+				report.output = geminiOutput
 			}
 		}
-
 	}
+
 	return &Response{
 		StatusCode:    200,
-		Body:          output,
+		Body:          report.output,
 		IsAbbreviated: isAbbreviated,
-		IssuesFound:   issueCount,
-		Unabbreviated: report,
+		IssuesFound:   report.issueCount,
+		Unabbreviated: report.unabbreviated,
 	}, nil
 }
 
@@ -226,9 +191,7 @@ func baseHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/", baseHandler)
 
 	corsHandler := cors.New(cors.Options{
@@ -236,18 +199,17 @@ func main() {
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Requested-With", "Accept"},
 		ExposedHeaders:   []string{"Content-Length"},
-		AllowCredentials: true,  // Important if you're sending cookies or auth headers
-		MaxAge:           86400, // How long the browser should cache the preflight response (in seconds)
+		AllowCredentials: true,
+		MaxAge:           86400,
 	}).Handler(mux)
 
-	// Get the port from the environment variable or default to 80
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "80"
+		port = "8080"
 	}
+
 	bindAddr := fmt.Sprintf(":%s", port)
 
-	// Start the HTTP server
 	log.Printf("Starting server on %s", bindAddr)
 	if err := http.ListenAndServe(bindAddr, corsHandler); err != nil {
 		log.Fatalf("Server failed: %v", err)

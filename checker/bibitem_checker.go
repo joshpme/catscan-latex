@@ -4,17 +4,14 @@ import (
 	"catscan-latex/structs"
 	"github.com/dlclark/regexp2"
 	"regexp"
+	"strings"
 )
 
-var containsEtAl = regexp2.MustCompile(`et al\.`, 0)
 var commaProceedsEtAl = regexp2.MustCompile(`,\s*(\\emph\{|\\textit\{|\{\\it\s*|\{\\em\s*)?et al`, 0)
-var containsDoi = regexp2.MustCompile(`doi:\s?10.`, 0)
+var noPrefix = regexp2.MustCompile(`\\url\s*{10\.`, 0)
 var containsSpace = regexp2.MustCompile(`doi:\s10`, 0)
-var noPrefix = regexp2.MustCompile(`\\url{10\.`, 0)
-var doiIsUrl = regexp2.MustCompile(`https?://(dx\.)?doi.org`, 0)
 
-var wrappedEtAl = regexp.MustCompile(`(\\emph\{|\\textit\{|\{\\it\s*|\{\\em\s*)et al\.,?\s*}`)
-var wrappedDoi = regexp.MustCompile(`\\url\{doi:10\.`)
+var doiIsUrl = regexp2.MustCompile(`https?://(dx\.)?doi.org`, 0)
 
 var volumeIssue = regexp2.MustCompile(`Vol. \d+, Issue \d+,`, 0)
 var apsStyleReference = regexp2.MustCompile(`\d+[, -]+?\d+ \(\d{4}\)`, 0)
@@ -42,12 +39,41 @@ func detectReferenceStyleReference(bibItem structs.BibItem) (bool, *structs.Loca
 	return false, nil
 }
 
-func etAlNotWrapped(bibItem structs.BibItem) (bool, *structs.Location) {
+var containsEtAl = regexp2.MustCompile(`et al\.`, 0)
+var validCommands = []string{
+	`\\emph\s*{`,
+	`\\textit\s*{`,
+	`\\it\s*{`,
+	`\\em\s*{`,
+	`\\itshape\s*{`,
+	`{\\it\s+`,
+	`{\\em\s+`,
+	`{\\itshape\s+`,
+}
+var validOptions = `(` + strings.Join(validCommands, "|") + ")"
+var italicEtAl = regexp.MustCompile(validOptions + `\s*et al\.`)
+
+func etAlNotItalic(bibItem structs.BibItem) (bool, *structs.Location) {
 	// Check if et al. not wrapped in a \it \emph or \textit macro
 	// eg. L. Kiani et al.,
 	match, err := containsEtAl.FindStringMatch(bibItem.OriginalText)
 	if err == nil && match != nil {
-		isWrapped := wrappedEtAl.FindString(bibItem.OriginalText)
+		isWrapped := italicEtAl.FindString(bibItem.OriginalText)
+		if isWrapped == "" {
+			location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
+			return true, &location
+		}
+	}
+	return false, nil
+}
+
+var containsDoi = regexp2.MustCompile(`doi:\s?10.`, 0)
+var wrappedDoi = regexp.MustCompile(`\\url\s*({|"|\||#|!|'})(doi:)?10\.`)
+
+func detectContainsDoiNotWrappedInUrl(bibItem structs.BibItem) (bool, *structs.Location) {
+	match, err := containsDoi.FindStringMatch(bibItem.OriginalText)
+	if err == nil && match != nil {
+		isWrapped := wrappedDoi.FindString(bibItem.OriginalText)
 		if isWrapped == "" {
 			location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 			return true, &location
@@ -64,11 +90,11 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 	match, err := commaProceedsEtAl.FindStringMatch(bibItem.OriginalText)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
-		issues = append(issues, structs.Issue{Type: "ET_AL_WITH_COMMA", Location: location})
+		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "ET_AL_WITH_COMMA", Location: location})
 	}
 
-	if found, location := etAlNotWrapped(bibItem); found {
-		issues = append(issues, structs.Issue{Type: "ET_AL_NOT_WRAPPED", Location: *location})
+	if found, location := etAlNotItalic(bibItem); found {
+		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "ET_AL_NOT_WRAPPED", Location: *location})
 	}
 
 	// Check that the doi does not contain a space after the colon
@@ -76,23 +102,18 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 	match, err = containsSpace.FindStringMatch(bibItem.OriginalText)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
-		issues = append(issues, structs.Issue{Type: "DOI_CONTAINS_SPACE", Location: location})
+		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_CONTAINS_SPACE", Location: location})
 	}
 
 	// check if reference is using incorrect reference style
 	if found, location := detectReferenceStyleReference(bibItem); found {
-		issues = append(issues, structs.Issue{Type: "INCORRECT_STYLE_REFERENCE", Location: *location})
+		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "INCORRECT_STYLE_REFERENCE", Location: *location})
 	}
 
 	// Is wrapped in a URL macro
 	// e.g. doi:10.1000/182 (without \url{})
-	match, err = containsDoi.FindStringMatch(bibItem.OriginalText)
-	if err == nil && match != nil {
-		isWrapped := wrappedDoi.FindString(bibItem.OriginalText)
-		if isWrapped == "" {
-			location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
-			issues = append(issues, structs.Issue{Type: "DOI_NOT_WRAPPED", Location: location})
-		}
+	if found, location := detectContainsDoiNotWrappedInUrl(bibItem); found {
+		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_NOT_WRAPPED", Location: *location})
 	}
 
 	// Check that doi has a doi: prefix
@@ -100,7 +121,7 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 	match, err = noPrefix.FindStringMatch(bibItem.OriginalText)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
-		issues = append(issues, structs.Issue{Type: "NO_DOI_PREFIX", Location: location})
+		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "NO_DOI_PREFIX", Location: location})
 	}
 
 	// Check that DOI is not a http link
@@ -108,23 +129,13 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 	match, err = doiIsUrl.FindStringMatch(bibItem.OriginalText)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
-		issues = append(issues, structs.Issue{Type: "DOI_IS_URL", Location: location})
+		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_IS_URL", Location: location})
 	}
 
 	match, err = volumeIssue.FindStringMatch(bibItem.OriginalText)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
-		issues = append(issues, structs.Issue{Type: "VOLUME_ISSUE", Location: location})
-	}
-
-	return issues
-}
-
-func FindBibItemIssues(bibItems []structs.BibItem) []structs.Issue {
-	var issues []structs.Issue
-
-	for _, bibItem := range bibItems {
-		issues = append(issues, CheckBibItem(bibItem)...)
+		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "VOLUME_ISSUE", Location: location})
 	}
 
 	return issues

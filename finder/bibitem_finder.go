@@ -20,11 +20,11 @@ func findBibItems(contents string) []structs.BibItem {
 	for err == nil && match != nil {
 		items = append(items, structs.BibItem{
 			Name:         match.Groups()[2].String(),
-			Ref:          removeExcessWhitespace(match.Groups()[2].String()),
+			Ref:          removeExcessWhitespace(match.Groups()[3].String()),
 			OriginalText: match.Groups()[3].String(),
 			Location: structs.Location{
 				Start: match.Groups()[3].Index,
-				End:   match.Groups()[3].Index + match.Groups()[2].Length,
+				End:   match.Groups()[3].Index + match.Groups()[3].Length,
 			},
 			LabelLocation: structs.Location{
 				Start: match.Groups()[1].Index,
