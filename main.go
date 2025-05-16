@@ -59,11 +59,11 @@ func issueToDescription(issue structs.Issue) string {
 	case "ET_AL_WITH_COMMA":
 		return "et al. is preceded by a comma, which is incorrect. Please remove the comma before the et al."
 	case "ET_AL_NOT_WRAPPED":
-		return "et al. is not wrapped in a macro to make it italic. Please use \\emph{et al.} instead of et al."
+		return "et al. is not wrapped in a command to make it italic. Please use \\emph{et al.} instead of et al."
 	case "DOI_CONTAINS_SPACE":
 		return "DOI contains a space after the colon. Please remove the space."
 	case "DOI_NOT_WRAPPED":
-		return "DOI not wrapped in \\url{} macro. Please use \\url{doi:10.18429/JACoW-IPAC2023-XXXX} instead of doi:10.18429/JACoW-IPAC2023-XXXX"
+		return "DOI not wrapped in \\url{} command. Please use \\url{doi:10.18429/JACoW-IPAC2023-XXXX} instead of doi:10.18429/JACoW-IPAC2023-XXXX"
 	case "NO_DOI_PREFIX":
 		return "DOI does not contain \"doi:\" prefix. It should appear like this \\url{doi:10.18429/JACoW-IPAC2023-XXXX}"
 	case "DOI_IS_URL":
