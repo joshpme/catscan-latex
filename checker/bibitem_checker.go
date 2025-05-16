@@ -54,7 +54,7 @@ var validOptions = `(` + strings.Join(validCommands, "|") + ")"
 var italicEtAl = regexp.MustCompile(validOptions + `\s*et al\.`)
 
 func etAlNotItalic(bibItem structs.BibItem) (bool, *structs.Location) {
-	// Check if et al. not wrapped in a \it \emph or \textit macro
+	// Check if et al. not wrapped in a \it \emph or \textit command
 	// eg. L. Kiani et al.,
 	match, err := containsEtAl.FindStringMatch(bibItem.OriginalText)
 	if err == nil && match != nil {
@@ -110,7 +110,7 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "INCORRECT_STYLE_REFERENCE", Location: *location})
 	}
 
-	// Is wrapped in a URL macro
+	// Is wrapped in a URL command
 	// e.g. doi:10.1000/182 (without \url{})
 	if found, location := detectContainsDoiNotWrappedInUrl(bibItem); found {
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_NOT_WRAPPED", Location: *location})
