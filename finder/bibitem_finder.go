@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+func removeComments(contents string) string {
+	var commentRegex = regexp2.MustCompile(`%.*?(\n|$)`, regexp2.Multiline)
+	var withoutComments, _ = commentRegex.Replace(contents, "", 0, -1)
+	return withoutComments
+}
+
 func removeExcessWhitespace(contents string) string {
 	var whitespaceRegex = regexp2.MustCompile(`\s+`, regexp2.Singleline)
 	var withoutMoreThanOneSpace, _ = whitespaceRegex.Replace(contents, " ", 0, -1)
@@ -20,7 +26,7 @@ func findBibItems(contents string) []structs.BibItem {
 	for err == nil && match != nil {
 		items = append(items, structs.BibItem{
 			Name:         match.Groups()[2].String(),
-			Ref:          removeExcessWhitespace(match.Groups()[3].String()),
+			Ref:          removeExcessWhitespace(removeComments(match.Groups()[3].String())),
 			OriginalText: match.Groups()[3].String(),
 			Location: structs.Location{
 				Start: match.Groups()[3].Index,

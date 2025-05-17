@@ -21,6 +21,7 @@ func main() {
 	files := findFiles("examples")
 	details := make([]detailEntry, 0)
 	for _, fileName := range files {
+		fmt.Printf("Checking %s\n", fileName)
 		contents, err := getContents(fileName)
 		if err != nil {
 			log.Fatalf("Error reading file '%v': %v", fileName, err)
@@ -34,7 +35,7 @@ func main() {
 		}
 
 		sort.Slice(entry.Issues, func(i, j int) bool {
-			return entry.Issues[i].Location.Start < entry.Issues[j].Location.Start
+			return entry.Issues[i].Name < entry.Issues[j].Name
 		})
 
 		details = append(details, entry)
@@ -45,7 +46,7 @@ func main() {
 	})
 
 	outFileName := "stats/details.csv"
-	err := writeChecksumsToFile(details, outFileName)
+	err := writeDetailsFile(details, outFileName)
 	if err != nil {
 		log.Fatalf("Error writing details to file '%v': %v", outFileName, err)
 	}
@@ -59,12 +60,12 @@ func main() {
 	}
 }
 
-func writeChecksumsToFile(checksums []detailEntry, fileName string) error {
+func writeDetailsFile(checksums []detailEntry, fileName string) error {
 	var buf bytes.Buffer
 
 	for _, entry := range checksums {
 		for _, issue := range entry.Issues {
-			buf.WriteString(fmt.Sprintf("%s,%d:%d,%v\n", entry.FileName, issue.Location.Start, issue.Location.End, issue.Type))
+			buf.WriteString(fmt.Sprintf("%s,%v\n", entry.FileName, issue.Type))
 		}
 	}
 
@@ -79,8 +80,17 @@ func writeSummaryToFile(checksums []detailEntry, fileName string) error {
 		}
 	}
 
+	issueTypes := make([]string, 0, len(m))
+	for issueType := range m {
+		issueTypes = append(issueTypes, issueType)
+	}
+
+	// Sort the issue types alphabetically
+	sort.Strings(issueTypes)
+
 	var buf bytes.Buffer
-	for issueType, count := range m {
+	for _, issueType := range issueTypes {
+		count := m[issueType]
 		buf.WriteString(fmt.Sprintf("%s,%d\n", issueType, count))
 	}
 
