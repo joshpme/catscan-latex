@@ -71,9 +71,9 @@ var containsDoi = regexp2.MustCompile(`doi:\s?10.`, 0)
 var wrappedDoi = regexp.MustCompile(`\\url\s*({|"|\||#|!|'})(doi:)?10\.`)
 
 func detectContainsDoiNotWrappedInUrl(bibItem structs.BibItem) (bool, *structs.Location) {
-	match, err := containsDoi.FindStringMatch(bibItem.OriginalText)
+	match, err := containsDoi.FindStringMatch(bibItem.Ref)
 	if err == nil && match != nil {
-		isWrapped := wrappedDoi.FindString(bibItem.OriginalText)
+		isWrapped := wrappedDoi.FindString(bibItem.Ref)
 		if isWrapped == "" {
 			location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 			return true, &location
@@ -87,7 +87,7 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 
 	// et al. should not be proceeded by a comma
 	// eg. L. Kiani et al.,
-	match, err := commaProceedsEtAl.FindStringMatch(bibItem.OriginalText)
+	match, err := commaProceedsEtAl.FindStringMatch(bibItem.Ref)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "ET_AL_WITH_COMMA", Location: location})
@@ -99,7 +99,7 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 
 	// Check that the doi does not contain a space after the colon
 	// e.g. doi: 10.1000/182
-	match, err = containsSpace.FindStringMatch(bibItem.OriginalText)
+	match, err = containsSpace.FindStringMatch(bibItem.Ref)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_CONTAINS_SPACE", Location: location})
@@ -118,7 +118,7 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 
 	// Check that doi has a doi: prefix
 	// e.g. \url{10.1000/182}
-	match, err = noPrefix.FindStringMatch(bibItem.OriginalText)
+	match, err = noPrefix.FindStringMatch(bibItem.Ref)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "NO_DOI_PREFIX", Location: location})
@@ -126,13 +126,13 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 
 	// Check that DOI is not a http link
 	// e.g. \url{https://doi.org/10.1000/182}
-	match, err = doiIsUrl.FindStringMatch(bibItem.OriginalText)
+	match, err = doiIsUrl.FindStringMatch(bibItem.Ref)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_IS_URL", Location: location})
 	}
 
-	match, err = volumeIssue.FindStringMatch(bibItem.OriginalText)
+	match, err = volumeIssue.FindStringMatch(bibItem.Ref)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "VOLUME_ISSUE", Location: location})
