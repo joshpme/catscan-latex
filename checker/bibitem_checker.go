@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-var commaProceedsEtAl = regexp2.MustCompile(`,\s*(\\emph\{|\\textit\{|\{\\it\s*|\{\\em\s*)?et al`, 0)
 var noPrefix = regexp2.MustCompile(`\\url\s*{10\.`, 0)
 var containsSpace = regexp2.MustCompile(`doi:\s10`, 0)
 
@@ -82,16 +81,38 @@ func detectContainsDoiNotWrappedInUrl(bibItem structs.BibItem) (bool, *structs.L
 	return false, nil
 }
 
+// return: issueCode, issueDetected
+// func detectEtAlIssue(ref string) (string, bool) {
+
+// 	findIfEtAlIsPresent := containsEtAl.FindString(ref)
+// 	previousCharacterALetter := false
+// 	for _, letter := range ref {
+
+// 		if letter == '.' {
+// 			authorInitialsFound := true
+// 		}
+
+// 		// prepare for next character
+// 		previousCharacterALetter = false
+// 		if unicode.IsLetter(letter) {
+// 			previousCharacterALetter = true
+// 		}
+// 	}
+// 	return "", false
+// }
+
 func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 	var issues []structs.Issue
 
 	// et al. should not be proceeded by a comma
 	// eg. L. Kiani et al.,
-	match, err := commaProceedsEtAl.FindStringMatch(bibItem.Ref)
-	if err == nil && match != nil {
-		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
-		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "ET_AL_WITH_COMMA", Location: location})
-	}
+	// if found, location := detectSingleAuthorCommaBeforeEtAl(bibItem); found {
+	// 	issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "ET_AL_WITH_COMMA", Location: *location})
+	// }
+
+	// if found, location := detectMultiAuthorNoCommaBeforeEtAl(bibItem); found {
+	// 	issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "ET_AL_WITHOUT_COMMA", Location: *location})
+	// }
 
 	if found, location := etAlNotItalic(bibItem); found {
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "ET_AL_NOT_WRAPPED", Location: *location})
@@ -99,7 +120,7 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 
 	// Check that the doi does not contain a space after the colon
 	// e.g. doi: 10.1000/182
-	match, err = containsSpace.FindStringMatch(bibItem.Ref)
+	match, err := containsSpace.FindStringMatch(bibItem.Ref)
 	if err == nil && match != nil {
 		location := structs.Location{Start: match.Index + bibItem.Location.Start, End: match.Index + match.Length + bibItem.Location.Start}
 		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_CONTAINS_SPACE", Location: location})
@@ -112,9 +133,9 @@ func CheckBibItem(bibItem structs.BibItem) []structs.Issue {
 
 	// Is wrapped in a URL command
 	// e.g. doi:10.1000/182 (without \url{})
-	if found, location := detectContainsDoiNotWrappedInUrl(bibItem); found {
-		issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_NOT_WRAPPED", Location: *location})
-	}
+	// if found, location := detectContainsDoiNotWrappedInUrl(bibItem); found {
+	// 	issues = append(issues, structs.Issue{Name: bibItem.Name, Type: "DOI_NOT_WRAPPED", Location: *location})
+	// }
 
 	// Check that doi has a doi: prefix
 	// e.g. \url{10.1000/182}

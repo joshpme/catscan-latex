@@ -5,6 +5,104 @@ import (
 	"testing"
 )
 
+func Test_singleAuthorCommaBeforeEtAl(t *testing.T) {
+	type args struct {
+		bibItem structs.BibItem
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "comma before un-italicized et al.",
+			args: args{
+				bibItem: structs.BibItem{
+					Ref: "J. Smith, et al.",
+					Location: structs.Location{
+						Start: 0,
+						End:   0,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "comma before un-italicized et al.",
+			args: args{
+				bibItem: structs.BibItem{
+					Ref: "J. Smith et al.",
+					Location: structs.Location{
+						Start: 0,
+						End:   0,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "no et al.",
+			args: args{
+				bibItem: structs.BibItem{
+					Ref: "J. Smith, \"Paper Title\"",
+					Location: structs.Location{
+						Start: 0,
+						End:   0,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "wrapped et al. with comma",
+			args: args{
+				bibItem: structs.BibItem{
+					Ref: "J. Smith, \\emph{et al.}",
+					Location: structs.Location{
+						Start: 0,
+						End:   0,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "wrapped et al. with comma",
+			args: args{
+				bibItem: structs.BibItem{
+					Ref: "J. Smith, \\emph{et al.}",
+					Location: structs.Location{
+						Start: 0,
+						End:   0,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "wrapped et al. with comma",
+			args: args{
+				bibItem: structs.BibItem{
+					Ref: "J. Smith, S. Person, \\emph{et al.}",
+					Location: structs.Location{
+						Start: 0,
+						End:   0,
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			found, _ := etAlNotItalic(tt.args.bibItem)
+			if found != tt.want {
+				t.Errorf("etAlWithComma() got = %v, want %v", found, tt.want)
+			}
+		})
+	}
+}
+
 func Test_etAlNotWrapped(t *testing.T) {
 	type args struct {
 		bibItem structs.BibItem
